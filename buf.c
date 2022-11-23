@@ -48,6 +48,7 @@ int buf_send(struct buf *buf, int fd)
 
 int buf_recv(struct buf *buf, int fd)
 {
+	buf_rrst(buf);
 	if (buf->size >= buf->capacity)
 	{
 		errno = EAGAIN;
@@ -60,7 +61,7 @@ int buf_recv(struct buf *buf, int fd)
 	return ret;
 }
 
-static int buf_wdata(struct buf *buf, const void *data, size_t size)
+int buf_write(struct buf *buf, const void *data, size_t size)
 {
 	if (buf->size + size > buf->capacity)
 	{
@@ -70,44 +71,47 @@ static int buf_wdata(struct buf *buf, const void *data, size_t size)
 		buf->data = d;
 		buf->capacity = buf->size + size;
 	}
-	memcpy(&buf->data[buf->size], data, size);
+	if (data)
+		memcpy(&buf->data[buf->size], data, size);
+	else
+		memset(&buf->data[buf->size], 0, size);
 	buf->size += size;
 	return 1;
 }
 
 int buf_wi8(struct buf *buf, int8_t v)
 {
-	return buf_wdata(buf, &v, 1);
+	return buf_write(buf, &v, 1);
 }
 
 int buf_wu8(struct buf *buf, uint8_t v)
 {
-	return buf_wdata(buf, &v, 1);
+	return buf_write(buf, &v, 1);
 }
 
 int buf_wi16(struct buf *buf, int16_t v)
 {
-	return buf_wdata(buf, &v, 2);
+	return buf_write(buf, &v, 2);
 }
 
 int buf_wu16(struct buf *buf, uint16_t v)
 {
-	return buf_wdata(buf, &v, 2);
+	return buf_write(buf, &v, 2);
 }
 
 int buf_wi32(struct buf *buf, int32_t v)
 {
-	return buf_wdata(buf, &v, 4);
+	return buf_write(buf, &v, 4);
 }
 
 int buf_wu32(struct buf *buf, uint32_t v)
 {
-	return buf_wdata(buf, &v, 4);
+	return buf_write(buf, &v, 4);
 }
 
 int buf_wstr(struct buf *buf, const char *v, size_t len)
 {
-	return buf_wdata(buf, v, len);
+	return buf_write(buf, v, len);
 }
 
 int buf_wpad(struct buf *buf)
@@ -116,7 +120,7 @@ int buf_wpad(struct buf *buf)
 	size_t m = buf->pos % 4;
 	if (!m)
 		return 1;
-	return buf_wdata(buf, z, 4 - m);
+	return buf_write(buf, z, 4 - m);
 }
 
 int buf_rrst(struct buf *buf)

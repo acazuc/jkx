@@ -21,6 +21,7 @@ size_t buf_remaining(struct buf *buf);
 int buf_send(struct buf *buf, int fd);
 int buf_recv(struct buf *buf, int fd);
 
+int buf_write(struct buf *buf, const void *data, size_t size);
 int buf_wi8(struct buf *buf, int8_t v);
 int buf_wu8(struct buf *buf, uint8_t v);
 int buf_wi16(struct buf *buf, int16_t v);
