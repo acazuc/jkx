@@ -297,6 +297,7 @@ static enum xpl_status xplc_parse_err(struct xpl_conn *conn,
 	return XPL_ERR;
 }
 
+#define EVENT_READ(n) buf_read(&conn->rbuf, NULL, n)
 #define EVENT_RI8(n)  buf_ri8(&conn->rbuf, &e->n)
 #define EVENT_RU8(n)  buf_ru8(&conn->rbuf, &e->n)
 #define EVENT_RI16(n) buf_ri16(&conn->rbuf, &e->n)
@@ -320,7 +321,7 @@ static enum xpl_status parse_event_key_press(struct xpl_conn *conn,
 	 || !EVENT_RI16(event_y)
 	 || !EVENT_RU16(state)
 	 || !EVENT_RU8(same_screen)
-	 || !buf_read(&conn->rbuf, NULL, 1))
+	 || !EVENT_READ(1))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -341,7 +342,7 @@ static enum xpl_status parse_event_key_release(struct xpl_conn *conn,
 	 || !EVENT_RI16(event_y)
 	 || !EVENT_RU16(state)
 	 || !EVENT_RU8(same_screen)
-	 || !buf_read(&conn->rbuf, NULL, 1))
+	 || !EVENT_READ(1))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -362,7 +363,7 @@ static enum xpl_status parse_event_button_press(struct xpl_conn *conn,
 	 || !EVENT_RI16(event_y)
 	 || !EVENT_RU16(state)
 	 || !EVENT_RU8(same_screen)
-	 || !buf_read(&conn->rbuf, NULL, 1))
+	 || !EVENT_READ(1))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -383,7 +384,7 @@ static enum xpl_status parse_event_button_release(struct xpl_conn *conn,
 	 || !EVENT_RI16(event_y)
 	 || !EVENT_RU16(state)
 	 || !EVENT_RU8(same_screen)
-	 || !buf_read(&conn->rbuf, NULL, 1))
+	 || !EVENT_READ(1))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -404,7 +405,7 @@ static enum xpl_status parse_event_motion_notify(struct xpl_conn *conn,
 	 || !EVENT_RU16(event_y)
 	 || !EVENT_RU16(state)
 	 || !EVENT_RU8(same_screen)
-	 || !buf_read(&conn->rbuf, NULL, 1))
+	 || !EVENT_READ(1))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -459,7 +460,7 @@ static enum xpl_status parse_event_focus_in(struct xpl_conn *conn,
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(event)
 	 || !EVENT_RU8(mode)
-	 || !buf_read(&conn->rbuf, NULL, 23))
+	 || !EVENT_READ(23))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -472,7 +473,7 @@ static enum xpl_status parse_event_focus_out(struct xpl_conn *conn,
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(event)
 	 || !EVENT_RU8(mode)
-	 || !buf_read(&conn->rbuf, NULL, 23))
+	 || !EVENT_READ(23))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -481,7 +482,7 @@ static enum xpl_status parse_event_keymap_notify(struct xpl_conn *conn,
                                                  struct xpl_event *event)
 {
 	struct xpl_event_keymap_notify *e = &event->keymap_notify;
-	if (!buf_read(&conn->rbuf, &e->keys, 31))
+	if (!EVENT_READ(31))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -490,7 +491,7 @@ static enum xpl_status parse_event_expose(struct xpl_conn *conn,
                                           struct xpl_event *event)
 {
 	struct xpl_event_expose *e = &event->expose;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(window)
 	 || !EVENT_RU16(x)
@@ -498,7 +499,7 @@ static enum xpl_status parse_event_expose(struct xpl_conn *conn,
 	 || !EVENT_RU16(width)
 	 || !EVENT_RU16(height)
 	 || !EVENT_RU16(count)
-	 || !buf_read(&conn->rbuf, NULL, 14))
+	 || !EVENT_READ(14))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -507,7 +508,7 @@ static enum xpl_status parse_event_graphics_exposure(struct xpl_conn *conn,
                                                      struct xpl_event *event)
 {
 	struct xpl_event_graphics_exposure *e = &event->graphics_exposure;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(drawable)
 	 || !EVENT_RU16(x)
@@ -517,7 +518,7 @@ static enum xpl_status parse_event_graphics_exposure(struct xpl_conn *conn,
 	 || !EVENT_RU16(minor_opcode)
 	 || !EVENT_RU16(count)
 	 || !EVENT_RU8(major_opcode)
-	 || !buf_read(&conn->rbuf, NULL, 11))
+	 || !EVENT_READ(11))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -526,12 +527,12 @@ static enum xpl_status parse_event_no_exposure(struct xpl_conn *conn,
                                                struct xpl_event *event)
 {
 	struct xpl_event_no_exposure *e = &event->no_exposure;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(drawable)
 	 || !EVENT_RU16(minor_opcode)
 	 || !EVENT_RU8(major_opcode)
-	 || !buf_read(&conn->rbuf, NULL, 21))
+	 || !EVENT_READ(21))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -540,11 +541,11 @@ static enum xpl_status parse_event_visibility_notify(struct xpl_conn *conn,
                                                      struct xpl_event *event)
 {
 	struct xpl_event_visibility_notify *e = &event->visibility_notify;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(window)
 	 || !EVENT_RU8(state)
-	 || !buf_read(&conn->rbuf, NULL, 23))
+	 || !EVENT_READ(23))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -553,7 +554,7 @@ static enum xpl_status parse_event_create_notify(struct xpl_conn *conn,
                                                  struct xpl_event *event)
 {
 	struct xpl_event_create_notify *e = &event->create_notify;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(parent)
 	 || !EVENT_RU32(window)
@@ -563,7 +564,78 @@ static enum xpl_status parse_event_create_notify(struct xpl_conn *conn,
 	 || !EVENT_RU16(height)
 	 || !EVENT_RU16(border_width)
 	 || !EVENT_RU8(override_redirect)
-	 || !buf_read(&conn->rbuf, NULL, 9))
+	 || !EVENT_READ(9))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_destroy_notify(struct xpl_conn *conn,
+                                                  struct xpl_event *event)
+{
+	struct xpl_event_destroy_notify *e = &event->destroy_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_READ(20))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_unmap_notify(struct xpl_conn *conn,
+                                                struct xpl_event *event)
+{
+	struct xpl_event_unmap_notify *e = &event->unmap_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU8(from_configure)
+	 || !EVENT_READ(19))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_map_notify(struct xpl_conn *conn,
+                                              struct xpl_event *event)
+{
+	struct xpl_event_map_notify *e = &event->map_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU8(override_redirect)
+	 || !EVENT_READ(19))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_map_request(struct xpl_conn *conn,
+                                               struct xpl_event *event)
+{
+	struct xpl_event_map_request *e = &event->map_request;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(parent)
+	 || !EVENT_RU32(window)
+	 || !EVENT_READ(20))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_reparent_notify(struct xpl_conn *conn,
+                                                   struct xpl_event *event)
+{
+	struct xpl_event_reparent_notify *e = &event->reparent_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(parent)
+	 || !EVENT_RI16(x)
+	 || !EVENT_RI16(y)
+	 || !EVENT_RU8(override_redirect)
+	 || !EVENT_READ(11))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -572,7 +644,7 @@ static enum xpl_status parse_event_configure_notify(struct xpl_conn *conn,
                                                     struct xpl_event *event)
 {
 	struct xpl_event_configure_notify *e = &event->configure_notify;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(event)
 	 || !EVENT_RU32(window)
@@ -583,7 +655,7 @@ static enum xpl_status parse_event_configure_notify(struct xpl_conn *conn,
 	 || !EVENT_RU16(height)
 	 || !EVENT_RU16(border_width)
 	 || !EVENT_RU8(override_redirect)
-	 || !buf_read(&conn->rbuf, NULL, 5))
+	 || !EVENT_READ(5))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -592,17 +664,18 @@ static enum xpl_status parse_event_property_notify(struct xpl_conn *conn,
                                                    struct xpl_event *event)
 {
 	struct xpl_event_property_notify *e = &event->property_notify;
-	if (!buf_ru8(&conn->rbuf, NULL)
+	if (!EVENT_READ(1)
 	 || !EVENT_RU16(sequence_number)
 	 || !EVENT_RU32(window)
 	 || !EVENT_RU32(atom)
 	 || !EVENT_RU32(time)
 	 || !EVENT_RU8(state)
-	 || !buf_read(&conn->rbuf, NULL, 15))
+	 || !EVENT_READ(15))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
 
+#undef EVENT_READ
 #undef EVENT_RI8
 #undef EVENT_RU8
 #undef EVENT_RI16
@@ -628,7 +701,11 @@ static const enum xpl_status (*parse_fns[])(struct xpl_conn *conn,
 	[XPL_EVENT_NO_EXPOSURE] = parse_event_no_exposure,
 	[XPL_EVENT_VISIBILITY_NOTIFY] = parse_event_visibility_notify,
 	[XPL_EVENT_CREATE_NOTIFY] = parse_event_create_notify,
-
+	[XPL_EVENT_DESTROY_NOTIFY] = parse_event_destroy_notify,
+	[XPL_EVENT_UNMAP_NOTIFY] = parse_event_unmap_notify,
+	[XPL_EVENT_MAP_NOTIFY] = parse_event_map_notify,
+	[XPL_EVENT_MAP_REQUEST] = parse_event_map_request,
+	[XPL_EVENT_REPARENT_NOTIFY] = parse_event_reparent_notify,
 	[XPL_EVENT_CONFIGURE_NOTIFY] = parse_event_configure_notify,
 
 	[XPL_EVENT_PROPERTY_NOTIFY] = parse_event_property_notify,

@@ -660,7 +660,7 @@ struct xpl_event_unmap_notify
 {
 	uint16_t sequence_number;
 	xpl_window_t event;
-	xpl_window_t winow;
+	xpl_window_t window;
 	xpl_bool_t from_configure;
 };
 
