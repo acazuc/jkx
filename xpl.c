@@ -90,8 +90,8 @@ int xpl_recv(struct xpl_conn *conn)
 	int ret = buf_recv(&conn->rbuf, conn->fd);
 	if (ret > 0)
 	{
-		for (int i = 0; i < ret; ++i)
-			printf("%02x\n", conn->rbuf.data[conn->rbuf.pos + i]);
+		for (int i = 0; i < ret; i += 4)
+			printf("%08x\n", *(uint32_t*)&conn->rbuf.data[conn->rbuf.pos + i]);
 	}
 	return ret;
 }
@@ -159,10 +159,7 @@ enum xpl_status xplc_conn_init_reply(struct xpl_conn *conn)
 	 || !buf_ru16(&conn->rbuf, &major)
 	 || !buf_ru16(&conn->rbuf, &minor)
 	 || !buf_ru16(&conn->rbuf, &length))
-	{
-		fprintf(stderr, "buf read failed\n");
-		return XPL_ERR;
-	}
+		return XPL_INTERNAL;
 	if (length * 4 > buf_remaining(&conn->rbuf))
 	{
 		conn->rbuf.pos -= 8;
@@ -170,10 +167,7 @@ enum xpl_status xplc_conn_init_reply(struct xpl_conn *conn)
 	}
 	setup = calloc(sizeof(*setup), 1);
 	if (!setup)
-	{
-		perror("malloc");
-		return XPL_ERR;
-	}
+		return XPL_INTERNAL;
 	if (!buf_ru32(&conn->rbuf, &setup->release_number)
 	 || !buf_ru32(&conn->rbuf, &setup->resource_id_base)
 	 || !buf_ru32(&conn->rbuf, &setup->resource_id_mask)
@@ -189,33 +183,18 @@ enum xpl_status xplc_conn_init_reply(struct xpl_conn *conn)
 	 || !buf_ru8(&conn->rbuf, &setup->min_keycode)
 	 || !buf_ru8(&conn->rbuf, &setup->max_keycode)
 	 || !buf_ru32(&conn->rbuf, NULL))
-	{
-		fprintf(stderr, "failed to read\n");
 		goto err;
-	}
 	setup->vendor = malloc(vendor_length + 1);
 	if (!setup->vendor)
-	{
-		perror("malloc");
 		goto err;
-	}
 	if (!buf_read(&conn->rbuf, setup->vendor, vendor_length))
-	{
-		fprintf(stderr, "vendor read failed\n");
 		goto err;
-	}
 	setup->vendor[vendor_length] = 0;
 	if (!buf_read(&conn->rbuf, NULL, xpl_pad(vendor_length)))
-	{
-		fprintf(stderr, "vendor pad read failed\n");
 		goto err;
-	}
 	setup->formats = malloc(sizeof(*setup->formats) * setup->formats_count);
 	if (!setup->formats)
-	{
-		perror("malloc");
 		goto err;
-	}
 	for (size_t i = 0; i < setup->formats_count; ++i)
 	{
 		struct xpl_format *format = &setup->formats[i];
@@ -223,17 +202,11 @@ enum xpl_status xplc_conn_init_reply(struct xpl_conn *conn)
 		 || !buf_ru8(&conn->rbuf, &format->bpp)
 		 || !buf_ru8(&conn->rbuf, &format->scanline_pad)
 		 || !buf_read(&conn->rbuf, NULL, 5))
-		{
-			fprintf(stderr, "failed to read format\n");
 			goto err;
-		}
 	}
 	setup->screens = calloc(sizeof(*setup->screens) * setup->screens_count, 1);
 	if (!setup->screens)
-	{
-		perror("malloc");
 		goto err;
-	}
 	for (size_t i = 0; i < setup->screens_count; ++i)
 	{
 		struct xpl_screen *screen = &setup->screens[i];
@@ -253,49 +226,34 @@ enum xpl_status xplc_conn_init_reply(struct xpl_conn *conn)
 		 || !buf_ru8(&conn->rbuf, &screen->save_unders)
 		 || !buf_ru8(&conn->rbuf, &screen->root_depth)
 		 || !buf_ru8(&conn->rbuf, &screen->depths_count))
-		{
-			fprintf(stderr, "failed to read screen\n");
 			goto err;
-		}
 		screen->depths = calloc(sizeof(*screen->depths) * screen->depths_count, 1);
 		if (!screen->depths)
-		{
-			perror("malloc");
 			goto err;
-		}
 		for (size_t j = 0; j < screen->depths_count; ++j)
 		{
-			struct xpl_depth *depth = &screen->depths[i];
+			struct xpl_depth *depth = &screen->depths[j];
 			if (!buf_ru8(&conn->rbuf, &depth->depth)
 			 || !buf_ru8(&conn->rbuf, NULL)
 			 || !buf_ru16(&conn->rbuf, &depth->visualtypes_count)
 			 || !buf_ru32(&conn->rbuf, NULL))
-			{
-				fprintf(stderr, "failed to read depth\n");
 				goto err;
-			}
 			depth->visualtypes = malloc(sizeof(*depth->visualtypes)
 			                          * depth->visualtypes_count);
 			if (!depth->visualtypes)
-			{
-				perror("malloc");
 				goto err;
-			}
 			for (size_t k = 0; k < depth->visualtypes_count; ++k)
 			{
 				struct xpl_visualtype *visualtype = &depth->visualtypes[k];
 				if (!buf_ru32(&conn->rbuf, &visualtype->visual_id)
-				 || !buf_ru8(&conn->rbuf, &visualtype->class_type)
+				 || !buf_ru8(&conn->rbuf, &visualtype->class)
 				 || !buf_ru8(&conn->rbuf, &visualtype->bits_per_rgb_value)
 				 || !buf_ru16(&conn->rbuf, &visualtype->colormap_entries)
 				 || !buf_ru32(&conn->rbuf, &visualtype->red_mask)
 				 || !buf_ru32(&conn->rbuf, &visualtype->green_mask)
 				 || !buf_ru32(&conn->rbuf, &visualtype->blue_mask)
 				 || !buf_ru32(&conn->rbuf, NULL))
-				{
-					fprintf(stderr, "failed to read visualtype\n");
 					goto err;
-				}
 			}
 		}
 	}
@@ -325,25 +283,32 @@ static enum xpl_status xplc_parse_err(struct xpl_conn *conn,
 	 || !buf_read(&conn->rbuf, NULL, 21))
 		return XPL_INTERNAL;
 	err->code = code;
-	return XPL_OK;
+	return XPL_ERR;
 }
+
+#define EVENT_RI8(n)  buf_ri8(&conn->rbuf, &e->n)
+#define EVENT_RU8(n)  buf_ru8(&conn->rbuf, &e->n)
+#define EVENT_RI16(n) buf_ri16(&conn->rbuf, &e->n)
+#define EVENT_RU16(n) buf_ru16(&conn->rbuf, &e->n)
+#define EVENT_RI32(n) buf_ri32(&conn->rbuf, &e->n)
+#define EVENT_RU32(n) buf_ru32(&conn->rbuf, &e->n)
 
 static enum xpl_status parse_event_key_press(struct xpl_conn *conn,
                                              struct xpl_event *event)
 {
 	struct xpl_event_key_press *e = &event->key_press;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(same_screen)
 	 || !buf_read(&conn->rbuf, NULL, 1))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -353,18 +318,18 @@ static enum xpl_status parse_event_key_release(struct xpl_conn *conn,
                                                struct xpl_event *event)
 {
 	struct xpl_event_key_release *e = &event->key_release;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(same_screen)
 	 || !buf_read(&conn->rbuf, NULL, 1))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -374,18 +339,18 @@ static enum xpl_status parse_event_button_press(struct xpl_conn *conn,
                                                 struct xpl_event *event)
 {
 	struct xpl_event_button_press *e = &event->button_press;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(same_screen)
 	 || !buf_read(&conn->rbuf, NULL, 1))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -395,18 +360,18 @@ static enum xpl_status parse_event_button_release(struct xpl_conn *conn,
                                                   struct xpl_event *event)
 {
 	struct xpl_event_button_release *e = &event->button_release;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(same_screen)
 	 || !buf_read(&conn->rbuf, NULL, 1))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -416,18 +381,18 @@ static enum xpl_status parse_event_motion_notify(struct xpl_conn *conn,
                                                  struct xpl_event *event)
 {
 	struct xpl_event_motion_notify *e = &event->motion_notify;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ru16(&conn->rbuf, &e->root_x)
-	 || !buf_ru16(&conn->rbuf, &e->root_y)
-	 || !buf_ru16(&conn->rbuf, &e->event_x)
-	 || !buf_ru16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RU16(root_x)
+	 || !EVENT_RU16(root_y)
+	 || !EVENT_RU16(event_x)
+	 || !EVENT_RU16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(same_screen)
 	 || !buf_read(&conn->rbuf, NULL, 1))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -437,19 +402,19 @@ static enum xpl_status parse_event_enter_notify(struct xpl_conn *conn,
                                                 struct xpl_event *event)
 {
 	struct xpl_event_enter_notify *e = &event->enter_notify;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->mode)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen_focus))
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(mode)
+	 || !EVENT_RU8(same_screen_focus))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -458,19 +423,19 @@ static enum xpl_status parse_event_leave_notify(struct xpl_conn *conn,
                                                 struct xpl_event *event)
 {
 	struct xpl_event_leave_notify *e = &event->leave_notify;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru32(&conn->rbuf, &e->root)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->child)
-	 || !buf_ri16(&conn->rbuf, &e->root_x)
-	 || !buf_ri16(&conn->rbuf, &e->root_y)
-	 || !buf_ri16(&conn->rbuf, &e->event_x)
-	 || !buf_ri16(&conn->rbuf, &e->event_y)
-	 || !buf_ru16(&conn->rbuf, &e->state)
-	 || !buf_ru8(&conn->rbuf, &e->mode)
-	 || !buf_ru8(&conn->rbuf, &e->same_screen_focus))
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(root)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(child)
+	 || !EVENT_RI16(root_x)
+	 || !EVENT_RI16(root_y)
+	 || !EVENT_RI16(event_x)
+	 || !EVENT_RI16(event_y)
+	 || !EVENT_RU16(state)
+	 || !EVENT_RU8(mode)
+	 || !EVENT_RU8(same_screen_focus))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
@@ -479,10 +444,10 @@ static enum xpl_status parse_event_focus_in(struct xpl_conn *conn,
                                             struct xpl_event *event)
 {
 	struct xpl_event_focus_in *e = &event->focus_in;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru8(&conn->rbuf, &e->mode)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU8(mode)
 	 || !buf_read(&conn->rbuf, NULL, 23))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -492,10 +457,10 @@ static enum xpl_status parse_event_focus_out(struct xpl_conn *conn,
                                              struct xpl_event *event)
 {
 	struct xpl_event_focus_out *e = &event->focus_out;
-	if (!buf_ru8(&conn->rbuf, &e->detail)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru8(&conn->rbuf, &e->mode)
+	if (!EVENT_RU8(detail)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU8(mode)
 	 || !buf_read(&conn->rbuf, NULL, 23))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -515,13 +480,13 @@ static enum xpl_status parse_event_expose(struct xpl_conn *conn,
 {
 	struct xpl_event_expose *e = &event->expose;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->window)
-	 || !buf_ru16(&conn->rbuf, &e->x)
-	 || !buf_ru16(&conn->rbuf, &e->y)
-	 || !buf_ru16(&conn->rbuf, &e->width)
-	 || !buf_ru16(&conn->rbuf, &e->height)
-	 || !buf_ru16(&conn->rbuf, &e->count)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU16(x)
+	 || !EVENT_RU16(y)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_RU16(count)
 	 || !buf_read(&conn->rbuf, NULL, 14))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -532,15 +497,15 @@ static enum xpl_status parse_event_graphics_exposure(struct xpl_conn *conn,
 {
 	struct xpl_event_graphics_exposure *e = &event->graphics_exposure;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->drawable)
-	 || !buf_ru16(&conn->rbuf, &e->x)
-	 || !buf_ru16(&conn->rbuf, &e->y)
-	 || !buf_ru16(&conn->rbuf, &e->width)
-	 || !buf_ru16(&conn->rbuf, &e->height)
-	 || !buf_ru16(&conn->rbuf, &e->minor_opcode)
-	 || !buf_ru16(&conn->rbuf, &e->count)
-	 || !buf_ru8(&conn->rbuf, &e->major_opcode)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(drawable)
+	 || !EVENT_RU16(x)
+	 || !EVENT_RU16(y)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_RU16(minor_opcode)
+	 || !EVENT_RU16(count)
+	 || !EVENT_RU8(major_opcode)
 	 || !buf_read(&conn->rbuf, NULL, 11))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -551,10 +516,10 @@ static enum xpl_status parse_event_no_exposure(struct xpl_conn *conn,
 {
 	struct xpl_event_no_exposure *e = &event->no_exposure;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->drawable)
-	 || !buf_ru16(&conn->rbuf, &e->minor_opcode)
-	 || !buf_ru8(&conn->rbuf, &e->major_opcode)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(drawable)
+	 || !EVENT_RU16(minor_opcode)
+	 || !EVENT_RU8(major_opcode)
 	 || !buf_read(&conn->rbuf, NULL, 21))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -565,9 +530,9 @@ static enum xpl_status parse_event_visibility_notify(struct xpl_conn *conn,
 {
 	struct xpl_event_visibility_notify *e = &event->visibility_notify;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->window)
-	 || !buf_ru8(&conn->rbuf, &e->state)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU8(state)
 	 || !buf_read(&conn->rbuf, NULL, 23))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -578,15 +543,15 @@ static enum xpl_status parse_event_create_notify(struct xpl_conn *conn,
 {
 	struct xpl_event_create_notify *e = &event->create_notify;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->parent)
-	 || !buf_ru32(&conn->rbuf, &e->window)
-	 || !buf_ri16(&conn->rbuf, &e->x)
-	 || !buf_ri16(&conn->rbuf, &e->y)
-	 || !buf_ru16(&conn->rbuf, &e->width)
-	 || !buf_ru16(&conn->rbuf, &e->height)
-	 || !buf_ru16(&conn->rbuf, &e->border_width)
-	 || !buf_ru8(&conn->rbuf, &e->override_redirect)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(parent)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RI16(x)
+	 || !EVENT_RI16(y)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_RU16(border_width)
+	 || !EVENT_RU8(override_redirect)
 	 || !buf_read(&conn->rbuf, NULL, 9))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -597,16 +562,16 @@ static enum xpl_status parse_event_configure_notify(struct xpl_conn *conn,
 {
 	struct xpl_event_configure_notify *e = &event->configure_notify;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->event)
-	 || !buf_ru32(&conn->rbuf, &e->window)
-	 || !buf_ru32(&conn->rbuf, &e->above_sibling)
-	 || !buf_ri16(&conn->rbuf, &e->x)
-	 || !buf_ri16(&conn->rbuf, &e->y)
-	 || !buf_ru16(&conn->rbuf, &e->width)
-	 || !buf_ru16(&conn->rbuf, &e->height)
-	 || !buf_ru16(&conn->rbuf, &e->border_width)
-	 || !buf_ru8(&conn->rbuf, &e->override_redirect)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(above_sibling)
+	 || !EVENT_RI16(x)
+	 || !EVENT_RI16(y)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_RU16(border_width)
+	 || !EVENT_RU8(override_redirect)
 	 || !buf_read(&conn->rbuf, NULL, 5))
 		return XPL_INTERNAL;
 	return XPL_OK;
@@ -617,15 +582,22 @@ static enum xpl_status parse_event_property_notify(struct xpl_conn *conn,
 {
 	struct xpl_event_property_notify *e = &event->property_notify;
 	if (!buf_ru8(&conn->rbuf, NULL)
-	 || !buf_ru16(&conn->rbuf, &e->sequence_number)
-	 || !buf_ru32(&conn->rbuf, &e->window)
-	 || !buf_ru32(&conn->rbuf, &e->atom)
-	 || !buf_ru32(&conn->rbuf, &e->time)
-	 || !buf_ru8(&conn->rbuf, &e->state)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(atom)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU8(state)
 	 || !buf_read(&conn->rbuf, NULL, 15))
 		return XPL_INTERNAL;
 	return XPL_OK;
 }
+
+#undef EVENT_RI8
+#undef EVENT_RU8
+#undef EVENT_RI16
+#undef EVENT_RU16
+#undef EVENT_RI32
+#undef EVENT_RU32
 
 static const enum xpl_status (*parse_fns[])(struct xpl_conn *conn,
                                             struct xpl_event *event) =
@@ -660,16 +632,19 @@ static enum xpl_status xplc_parse_event(struct xpl_conn *conn,
 		return XPL_AGAIN;
 	}
 	if (code >= sizeof(parse_fns) / sizeof(*parse_fns) || !parse_fns[code])
-		return XPL_ERR;
+		return XPL_INTERNAL;
 	struct xpl_event_queue *evt = malloc(sizeof(*evt));
 	if (!evt)
 		return XPL_INTERNAL;
 	evt->event.type = code;
 	enum xpl_status status = parse_fns[code](conn, &evt->event);
 	if (status != XPL_OK)
+	{
 		free(evt);
-	else
-		return XPL_AGAIN;
+		return status;
+	}
+
+	return XPL_AGAIN;
 }
 
 int xplc_create_window(struct xpl_conn *conn, uint8_t depth, xpl_window_t id,
@@ -712,6 +687,14 @@ int xplc_create_window(struct xpl_conn *conn, uint8_t depth, xpl_window_t id,
 int xplc_map_window(struct xpl_conn *conn, xpl_window_t window)
 {
 	return buf_wu8(&conn->wbuf, XPL_REQUEST_MAP_WINDOW)
+	    && buf_wu8(&conn->wbuf, 0)
+	    && buf_wu16(&conn->wbuf, 2)
+	    && buf_wu32(&conn->wbuf, window);
+}
+
+int xplc_unmap_window(struct xpl_conn *conn, xpl_window_t window)
+{
+	return buf_wu8(&conn->wbuf, XPL_REQUEST_UNMAP_WINDOW)
 	    && buf_wu8(&conn->wbuf, 0)
 	    && buf_wu16(&conn->wbuf, 2)
 	    && buf_wu32(&conn->wbuf, window);

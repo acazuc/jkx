@@ -117,7 +117,7 @@ int buf_wstr(struct buf *buf, const char *v, size_t len)
 int buf_wpad(struct buf *buf)
 {
 	static const char z[4] = {0};
-	size_t m = buf->pos % 4;
+	size_t m = buf->size % 4;
 	if (!m)
 		return 1;
 	return buf_write(buf, z, 4 - m);

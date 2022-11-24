@@ -1,7 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "Xatom.h"
+#include "Xutil.h"
+#include "Xlib.h"
 #include "xpl.h"
 
 static void print_setup(const struct xpl_setup *setup)
@@ -18,7 +22,7 @@ static void print_setup(const struct xpl_setup *setup)
 		printf("\troot: %u\n", screen->root);
 		for (size_t j = 0; j < screen->depths_count; ++j)
 		{
-			struct xpl_depth *depth = &screen->depths[i];
+			struct xpl_depth *depth = &screen->depths[j];
 			printf("\tdepth:\n");
 			printf("\t\tdepth: %u\n", depth->depth);
 			for (size_t k = 0; k < depth->visualtypes_count; ++k)
@@ -26,7 +30,7 @@ static void print_setup(const struct xpl_setup *setup)
 				struct xpl_visualtype *visualtype = &depth->visualtypes[k];
 				printf("\t\tvisualtype:\n");
 				printf("\t\t\tvisual_id: %u\n", visualtype->visual_id);
-				printf("\t\t\tclass_type: %u\n", visualtype->class_type);
+				printf("\t\t\tclass: %u\n", visualtype->class);
 				printf("\t\t\tbpr_value: %u\n", visualtype->bits_per_rgb_value);
 				printf("\t\t\tred_mask: %x\n", visualtype->red_mask);
 				printf("\t\t\tgreen_mask: %x\n", visualtype->green_mask);
@@ -59,70 +63,58 @@ static int get_atom(struct xpl_conn *conn, const char *name, xpl_atom_t *atom)
 	return parse_status == XPL_OK;
 }
 
+static XVisualInfo *get_vi(Display *display)
+{
+	int nitems;
+	long mask = VisualRedMaskMask | VisualGreenMaskMask | VisualBlueMaskMask
+	          | VisualBitsPerRGBMask | VisualDepthMask | VisualScreenMask;
+	XVisualInfo tmpl;
+	tmpl.screen = 0;
+	tmpl.depth = 24;
+	tmpl.red_mask = 0xFF0000;
+	tmpl.green_mask = 0xFF00;
+	tmpl.blue_mask = 0xFF;
+	tmpl.bits_per_rgb = 8;
+	return XGetVisualInfo(display, mask, &tmpl, &nitems);
+}
+
 int main()
 {
-	struct xpl_conn *conn;
-	conn = xpl_conn_new();
-	if (!conn)
+	Display *display = XOpenDisplay(NULL);
+	Window root = XRootWindow(display, 0);
+	XVisualInfo *vi = get_vi(display);
+	if (!vi)
 	{
-		fprintf(stderr, "failed to create conn\n");
+		fprintf(stderr, "failed to get vi\n");
 		return EXIT_FAILURE;
 	}
-	if (!xplc_conn_init(conn, 'l', 11, 0, "", ""))
-	{
-		fprintf(stderr, "conn_init failed\n");
-		return EXIT_FAILURE;
-	}
-	if (!xpl_flush(conn))
-	{
-		fprintf(stderr, "flush failed\n");
-		return EXIT_FAILURE;
-	}
-	enum xpl_status parse_status;
-	do
-	{
-		int ret = xpl_recv(conn);
-		printf("recv %d\n", ret);
-		parse_status = xplc_conn_init_reply(conn);
-	} while (parse_status == XPL_AGAIN);
-	if (parse_status == XPL_ERR)
-	{
-		fprintf(stderr, "failed to parse setup\n");
-		return EXIT_FAILURE;
-	}
-	print_setup(conn->setup);
-	xpl_window_t window = xplc_generate_id(conn);
-	struct xpl_screen *screen = &conn->setup->screens[0];
-	xpl_window_t parent = screen->root;
-	uint32_t mask = XPL_CREATE_WINDOW_BACKING_PIXEL
-	              | XPL_CREATE_WINDOW_EVENT_MASK;
-	uint32_t mask_values[2];
-	mask_values[0] = screen->white_pixel;
-	mask_values[1] = XPL_EVENT_MASK_EXPOSURE | XPL_EVENT_MASK_KEY_PRESS;
-	if (!xplc_create_window(conn, 0, window, parent, 0, 0, 640, 480, 0, 1,
-	                        screen->root_visual, mask, mask_values))
-	{
-		fprintf(stderr, "create window\n");
-		return EXIT_FAILURE;
-	}
-	if (!xplc_map_window(conn, window))
-	{
-		fprintf(stderr, "map window\n");
-		return EXIT_FAILURE;
-	}
-	if (!xpl_flush(conn))
-	{
-		fprintf(stderr, "flush failed\n");
-		return EXIT_FAILURE;
-	}
-	do
-	{
-		int ret = xpl_recv(conn);
-		printf("recv %d\n", ret);
-	} while (buf_remaining(&conn->rbuf) < 32);
-	uint32_t err;
-	while (buf_ru32(&conn->rbuf, &err))
-		printf("%08x\n", err);
+	XSetWindowAttributes swa;
+	swa.event_mask = ExposureMask | KeyPressMask;
+	unsigned mask = CWEventMask;
+	Window window = XCreateWindow(display, root, 0, 0, 640, 480, 0, vi->depth,
+	                              InputOutput, vi->visual, mask, &swa);
+	XMapWindow(display, window);
+	XFlush(display);
+	Atom atom_net_wm_name = XInternAtom(display, "_NET_WM_NAME", 0);
+	printf("_NET_WM_NAME: %u\n", atom_net_wm_name);
+	Atom atom_net_wm_pid = XInternAtom(display, "_NET_WM_PID", 0);
+	printf("_NET_WM_PID: %u\n", atom_net_wm_pid);
+	Atom atom_utf8_string = XInternAtom(display, "UTF8_STRING", 0);
+	printf("UTF8_STRING: %u\n", atom_utf8_string);
+	Atom atom_net_wm_icon_name = XInternAtom(display, "_NET_WM_ICON_NAME", 0);
+	printf("_NET_WM_ICON_NAME: %u\n", atom_net_wm_icon_name);
+	XChangeProperty(display, window, atom_net_wm_name, atom_utf8_string, 8,
+	                PropModeReplace, "test", 4);
+	XChangeProperty(display, window, atom_net_wm_icon_name, atom_utf8_string, 8,
+	                PropModeReplace, "test", 4);
+	int pid = getpid();
+	XChangeProperty(display, window, atom_net_wm_pid, XA_CARDINAL, 32,
+	                PropModeReplace, (uint8_t*)&pid, 1);
+	XFlush(display);
+	sleep(2);
+	XUnmapWindow(display, window);
+	XFlush(display);
+#if 0
 	xpl_atom_t atom_net_wm_pid;
 	xpl_atom_t atom_net_wm_name;
 	xpl_atom_t atom_utf8_string;
@@ -154,6 +146,7 @@ int main()
 		fprintf(stderr, "flush failed\n");
 		return EXIT_FAILURE;
 	}
+#endif
 	while (1);
 	return EXIT_SUCCESS;
 }

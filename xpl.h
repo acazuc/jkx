@@ -346,7 +346,7 @@ struct xpl_format
 struct xpl_visualtype
 {
 	xpl_visualid_t visual_id;
-	uint8_t class_type;
+	uint8_t class;
 	uint8_t bits_per_rgb_value;
 	uint16_t colormap_entries;
 	uint32_t red_mask;
@@ -893,6 +893,7 @@ int xplc_create_window(struct xpl_conn *conn, uint8_t depth, xpl_window_t id,
                        uint32_t value_mask, uint32_t *values);
 
 int xplc_map_window(struct xpl_conn *conn, xpl_window_t window);
+int xplc_unmap_window(struct xpl_conn *conn, xpl_window_t window);
 
 int xplc_intern_atom(struct xpl_conn *conn, uint8_t only_if_exists,
                      const char *name);
