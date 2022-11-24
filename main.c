@@ -3,9 +3,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-#include "Xatom.h"
-#include "Xutil.h"
-#include "Xlib.h"
+#include "X11/Xatom.h"
+#include "X11/Xutil.h"
+#include "X11/Xlib.h"
 #include "xpl.h"
 
 static void print_setup(const struct xpl_setup *setup)
@@ -66,21 +66,19 @@ static int get_atom(struct xpl_conn *conn, const char *name, xpl_atom_t *atom)
 static XVisualInfo *get_vi(Display *display)
 {
 	int nitems;
-	long mask = VisualRedMaskMask | VisualGreenMaskMask | VisualBlueMaskMask
-	          | VisualBitsPerRGBMask | VisualDepthMask | VisualScreenMask;
+	long mask = 0;
 	XVisualInfo tmpl;
-	tmpl.screen = 0;
-	tmpl.depth = 24;
-	tmpl.red_mask = 0xFF0000;
-	tmpl.green_mask = 0xFF00;
-	tmpl.blue_mask = 0xFF;
-	tmpl.bits_per_rgb = 8;
 	return XGetVisualInfo(display, mask, &tmpl, &nitems);
 }
 
 int main()
 {
 	Display *display = XOpenDisplay(NULL);
+	if (!display)
+	{
+		fprintf(stderr, "failed to open display\n");
+		return EXIT_FAILURE;
+	}
 	Window root = XRootWindow(display, 0);
 	XVisualInfo *vi = get_vi(display);
 	if (!vi)

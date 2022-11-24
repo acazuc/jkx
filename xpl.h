@@ -871,7 +871,7 @@ struct xpl_conn
 	SLIST_HEAD(, xpl_event_queue) events;
 };
 
-struct xpl_conn *xpl_conn_new(void);
+struct xpl_conn *xpl_conn_new(const char *display_name);
 void xpl_conn_delete(struct xpl_conn *conn);
 
 int xpl_send(struct xpl_conn *conn);

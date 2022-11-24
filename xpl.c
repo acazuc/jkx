@@ -14,8 +14,19 @@ static inline uint32_t xpl_pad(uint32_t length)
 	return 4 - n;
 }
 
-struct xpl_conn *xpl_conn_new(void)
+struct xpl_conn *xpl_conn_new(const char *display_name)
 {
+	if (!display_name)
+	{
+		display_name = getenv("DISPLAY");
+		if (!display_name)
+			return NULL;
+	}
+	const char *semi = strchr(display_name, ':');
+	if (!semi)
+		return NULL;
+	if (strchr(semi, '/'))
+		return NULL;
 	struct sockaddr_un sun;
 	struct xpl_conn *conn = malloc(sizeof(*conn));
 	if (!conn)
@@ -30,7 +41,7 @@ struct xpl_conn *xpl_conn_new(void)
 	if (conn->fd < 0)
 		goto err;
 	sun.sun_family = AF_UNIX;
-	strcpy(sun.sun_path, "/tmp/.X11-unix/X0");
+	snprintf(sun.sun_path, sizeof(sun.sun_path), "/tmp/.X11-unix/X%s", semi + 1);
 	if (connect(conn->fd, (struct sockaddr*)&sun, sizeof(sun)) == -1)
 		goto err;
 	return conn;

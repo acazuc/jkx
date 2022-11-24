@@ -1,6 +1,6 @@
 #include "Xutil.h"
 #include "Xlib.h"
-#include "xpl.h"
+#include "../xpl.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -9,7 +9,7 @@ Display *XOpenDisplay(const char *display_name)
 	Display *display = malloc(sizeof(*display));
 	if (!display)
 		return NULL;
-	display->conn = xpl_conn_new();
+	display->conn = xpl_conn_new(display_name);
 	if (!display->conn)
 	{
 		free(display);
