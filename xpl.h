@@ -22,6 +22,14 @@ typedef uint32_t xpl_timestamp_t;
 typedef uint8_t xpl_bool_t;
 typedef uint16_t xpl_keybutmask_t;
 
+enum xpl_status
+{
+	XPL_OK,       /* message has been fetched */
+	XPL_ERR,      /* received an error */
+	XPL_AGAIN,    /* not enough data */
+	XPL_INTERNAL, /* internal error / malformed message */
+};
+
 enum xpl_bit_gravity
 {
 	XPL_BIT_GRAVITY_FORGET    = 0,
@@ -141,30 +149,6 @@ enum xpl_keybutmask
 	XPL_KEYBUTMASK_BUTTON5 = (1 << 12),
 };
 
-struct xpl_point
-{
-	int16_t x;
-	int16_t y;
-};
-
-struct xpl_rectangle
-{
-	int16_t x;
-	int16_t y;
-	uint16_t width;
-	uint16_t height;
-};
-
-struct xpl_arc
-{
-	int16_t x;
-	int16_t y;
-	uint16_t width;
-	uint16_t height;
-	int16_t angle1;
-	int16_t angle2;
-};
-
 enum xpl_error
 {
 	XPL_ERR_REQUEST        = 1,
@@ -203,6 +187,23 @@ enum xpl_create_window_value_mask
 	XPL_CREATE_WINDOW_DO_NOT_PROPAGATE_MASK = (1 << 12),
 	XPL_CREATE_WINDOW_COLORMAP              = (1 << 13),
 	XPL_CREATE_WINDOW_CURSOR                = (1 << 14),
+};
+
+enum xpl_configure_window_value_mask
+{
+	XPL_CONFIGURE_WINDOW_X            = (1 << 0),
+	XPL_CONFIGURE_WINDOW_Y            = (1 << 1),
+	XPL_CONFIGURE_WINDOW_WIDTH        = (1 << 2),
+	XPL_CONFIGURE_WINDOW_HEIGHT       = (1 << 3),
+	XPL_CONFIGURE_WINDOW_BORDER_WIDTH = (1 << 4),
+	XPL_CONFIGURE_WINDOW_SIBLING      = (1 << 5),
+	XPL_CONFIGURE_WINDOW_STACK_MODE   = (1 << 6),
+};
+
+enum xpl_circulate_window_direction
+{
+	XPL_CIRCULATE_WINDOW_RAISE_LOWEST  = 0,
+	XPL_CIRCULATE_WINDOW_LOWER_HIGHEST = 1,
 };
 
 enum xpl_property_mode
@@ -336,6 +337,30 @@ enum xpl_request
 	XPL_REQUEST_NO_OPERATION               = 127,
 };
 
+struct xpl_point
+{
+	int16_t x;
+	int16_t y;
+};
+
+struct xpl_rectangle
+{
+	int16_t x;
+	int16_t y;
+	uint16_t width;
+	uint16_t height;
+};
+
+struct xpl_arc
+{
+	int16_t x;
+	int16_t y;
+	uint16_t width;
+	uint16_t height;
+	int16_t angle1;
+	int16_t angle2;
+};
+
 struct xpl_format
 {
 	uint8_t depth;
@@ -400,14 +425,6 @@ struct xpl_setup
 	char *vendor;
 	struct xpl_format *formats;
 	struct xpl_screen *screens;
-};
-
-enum xpl_status
-{
-	XPL_OK,       /* message has been fetched */
-	XPL_ERR,      /* received an error */
-	XPL_AGAIN,    /* not enough data */
-	XPL_INTERNAL, /* internal error / malformed message */
 };
 
 struct xpl_err
@@ -795,12 +812,13 @@ struct xpl_event_colormap_notify
 	uint16_t sequence_number;
 	xpl_window_t window;
 	xpl_colormap_t colormap;
-	xpl_bool_t _new;
+	xpl_bool_t new;
 	uint8_t state;
 };
 
 struct xpl_event_client_message
 {
+	uint8_t format;
 	uint16_t sequence_number;
 	xpl_window_t window;
 	xpl_atom_t type;
@@ -906,5 +924,14 @@ int xplc_change_property(struct xpl_conn *conn, enum xpl_property_mode mode,
                          xpl_window_t window, xpl_atom_t property,
                          xpl_atom_t type, uint8_t format, uint32_t length,
                          const void *data);
+
+int xplc_configure_window(struct xpl_conn *conn, xpl_window_t window,
+                          uint16_t value_mask, uint32_t *value_list);
+
+int xplc_circulate_window(struct xpl_conn *conn, uint8_t direction,
+                          xpl_window_t window);
+
+int xplc_change_window_attributes(struct xpl_conn *conn, xpl_window_t window,
+                                  uint32_t value_mask, uint32_t *values);
 
 #endif

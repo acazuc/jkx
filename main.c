@@ -110,6 +110,9 @@ int main()
 	                PropModeReplace, (uint8_t*)&pid, 1);
 	XFlush(display);
 	sleep(2);
+	XResizeWindow(display, window, 840, 680);
+	XFlush(display);
+	sleep(2);
 	XUnmapWindow(display, window);
 	XFlush(display);
 #if 0

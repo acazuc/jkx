@@ -76,6 +76,9 @@ typedef struct
 	Bool same_screen;
 } XKeyEvent;
 
+typedef XKeyEvent XKeyPressedEvent;
+typedef XKeyEvent XKeyReleasedEvent;
+
 typedef struct
 {
 	int type;
@@ -95,6 +98,9 @@ typedef struct
 	Bool same_screen;
 } XButtonEvent;
 
+typedef XButtonEvent XButtonPressedEvent;
+typedef XButtonEvent XButtonReleasedEvent;
+
 typedef struct
 {
 	int type;
@@ -113,6 +119,8 @@ typedef struct
 	char is_hiny;
 	Bool same_screen;
 } XMotionEvent;
+
+typedef XMotionEvent XPointerMovedEvent;
 
 typedef struct
 {
@@ -134,6 +142,9 @@ typedef struct
 	Bool focus;
 	unsigned state;
 } XCrossingEvent;
+
+typedef XCrossingEvent XEnterWindowEvent;
+typedef XCrossingEvent XLeaveWindowEvent;
 
 typedef struct
 {
@@ -501,6 +512,17 @@ typedef union _XEvent
 	long pad[24];
 } XEvent;
 
+typedef struct
+{
+	int x;
+	int y;
+	int width;
+	int height;
+	int border_width;
+	Window sibling;
+	int stack_mode;
+} XWindowChanges;
+
 Display *XOpenDisplay(const char *display_name);
 
 int XConnectionNumber(Display *display);
@@ -519,10 +541,35 @@ Window XCreateWindow(Display *display, Window parent, int x, int y,
                      unsigned width, unsigned height, unsigned border_width,
                      int depth, unsigned _class, Visual *visual,
                      unsigned valuemask, XSetWindowAttributes *attributes);
+Window XCreateSimpleWindow(Display *display, Window parent, int x, int y,
+                           unsigned width, unsigned height,
+                           unsigned border_width, unsigned long border,
+                           unsigned long background);
 int XMapWindow(Display *display, Window w);
 int XUnmapWindow(Display *display, Window w);
 Atom XInternAtom(Display *display, char *atom_name, Bool only_if_exists);
 int XChangeProperty(Display *display, Window w, Atom property, Atom type,
                     int format, int mode, const uint8_t *data, int nelements);
+int XConfigureWindow(Display *display, Window w, unsigned value_mask,
+                     XWindowChanges *values);
+int XMoveWindow(Display *display, Window w, int x, int y);
+int XResizeWindow(Display *display, Window w, unsigned width, unsigned height);
+int XMoveResizeWindow(Display *display, Window w, int x, int y, unsigned width,
+                      unsigned height);
+int XSetWindowBorderWidth(Display *display, Window w, unsigned width);
+int XRaiseWindow(Display *display, Window w);
+int XLowerWindow(Display *display, Window w);
+int XChangeWindowAttributes(Display *display, Window w,
+                            unsigned long valuemask,
+                            XSetWindowAttributes *attributes);
+int XSetWindowBackground(Display *display, Window w,
+                         unsigned long background_pixel);
+int XSetWindowBackgroundPixmap(Display *display, Window w,
+                               Pixmap background_pixmap);
+int XSetWindowBorder(Display *display, Window w, unsigned long border_pixel);
+int XSetWindowBorderPixmap(Display *display, Window w, Pixmap border_pixmap);
+int XSetWindowColormap(Display *display, Window w, Colormap colormap);
+int XDefineCursor(Display *display, Window w, Cursor cursor);
+int XUndefineCursor(Display *display, Window w);
 
 #endif

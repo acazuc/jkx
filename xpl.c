@@ -660,6 +660,85 @@ static enum xpl_status parse_event_configure_notify(struct xpl_conn *conn,
 	return XPL_OK;
 }
 
+static enum xpl_status parse_event_configure_request(struct xpl_conn *conn,
+                                                     struct xpl_event *event)
+{
+	struct xpl_event_configure_request *e = &event->configure_request;
+	if (!EVENT_RU8(stack_mode)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(parent)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(sibling)
+	 || !EVENT_RI16(x)
+	 || !EVENT_RI16(y)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_RU16(border_width)
+	 || !EVENT_RU16(value_mask)
+	 || !EVENT_READ(4))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_gravity_notify(struct xpl_conn *conn,
+                                                  struct xpl_event *event)
+{
+	struct xpl_event_gravity_notify *e = &event->gravity_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RI16(x)
+	 || !EVENT_RI16(y)
+	 || !EVENT_READ(16))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_resize_request(struct xpl_conn *conn,
+                                                  struct xpl_event *event)
+{
+	struct xpl_event_resize_request *e = &event->resize_request;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU16(width)
+	 || !EVENT_RU16(height)
+	 || !EVENT_READ(20))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_circulate_notify(struct xpl_conn *conn,
+                                                    struct xpl_event *event)
+{
+	struct xpl_event_circulate_notify *e = &event->circulate_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(event)
+	 || !EVENT_RU32(window)
+	 || !EVENT_READ(4)
+	 || !EVENT_RU8(place)
+	 || !EVENT_READ(15))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_circulate_request(struct xpl_conn *conn,
+                                                     struct xpl_event *event)
+{
+	struct xpl_event_circulate_request *e = &event->circulate_request;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(parent)
+	 || !EVENT_RU32(window)
+	 || !EVENT_READ(4)
+	 || !EVENT_RU8(place)
+	 || !EVENT_READ(15))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
 static enum xpl_status parse_event_property_notify(struct xpl_conn *conn,
                                                    struct xpl_event *event)
 {
@@ -675,6 +754,95 @@ static enum xpl_status parse_event_property_notify(struct xpl_conn *conn,
 	return XPL_OK;
 }
 
+static enum xpl_status parse_event_selection_clear(struct xpl_conn *conn,
+                                                   struct xpl_event *event)
+{
+	struct xpl_event_selection_clear *e = &event->selection_clear;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(owner)
+	 || !EVENT_RU32(selection)
+	 || !EVENT_READ(16))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_selection_request(struct xpl_conn *conn,
+                                                     struct xpl_event *event)
+{
+	struct xpl_event_selection_request *e = &event->selection_request;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(owner)
+	 || !EVENT_RU32(requestor)
+	 || !EVENT_RU32(selection)
+	 || !EVENT_RU32(target)
+	 || !EVENT_RU32(property)
+	 || !EVENT_READ(4))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_selection_notify(struct xpl_conn *conn,
+                                                    struct xpl_event *event)
+{
+	struct xpl_event_selection_notify *e = &event->selection_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(time)
+	 || !EVENT_RU32(requestor)
+	 || !EVENT_RU32(selection)
+	 || !EVENT_RU32(target)
+	 || !EVENT_RU32(property)
+	 || !EVENT_READ(8))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_colormap_notify(struct xpl_conn *conn,
+                                                   struct xpl_event *event)
+{
+	struct xpl_event_colormap_notify *e = &event->colormap_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(colormap)
+	 || !EVENT_RU8(new)
+	 || !EVENT_RU8(state)
+	 || !EVENT_READ(18))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_client_message(struct xpl_conn *conn,
+                                                  struct xpl_event *event)
+{
+	struct xpl_event_client_message *e = &event->client_message;
+	if (!EVENT_RU8(format)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU32(window)
+	 || !EVENT_RU32(type)
+	 || !EVENT_READ(20))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
+static enum xpl_status parse_event_mapping_notify(struct xpl_conn *conn,
+                                                  struct xpl_event *event)
+{
+	struct xpl_event_mapping_notify *e = &event->mapping_notify;
+	if (!EVENT_READ(1)
+	 || !EVENT_RU16(sequence_number)
+	 || !EVENT_RU8(request)
+	 || !EVENT_RU8(first_keycode)
+	 || !EVENT_RU8(count)
+	 || !EVENT_READ(25))
+		return XPL_INTERNAL;
+	return XPL_OK;
+}
+
 #undef EVENT_READ
 #undef EVENT_RI8
 #undef EVENT_RU8
@@ -686,29 +854,39 @@ static enum xpl_status parse_event_property_notify(struct xpl_conn *conn,
 static const enum xpl_status (*parse_fns[])(struct xpl_conn *conn,
                                             struct xpl_event *event) =
 {
-	[XPL_EVENT_KEY_PRESS] = parse_event_key_press,
-	[XPL_EVENT_KEY_RELEASE] = parse_event_key_release,
-	[XPL_EVENT_BUTTON_PRESS] = parse_event_button_press,
-	[XPL_EVENT_BUTTON_RELEASE] = parse_event_button_release,
-	[XPL_EVENT_MOTION_NOTIFY] = parse_event_motion_notify,
-	[XPL_EVENT_ENTER_NOTIFY] = parse_event_enter_notify,
-	[XPL_EVENT_LEAVE_NOTIFY] = parse_event_leave_notify,
-	[XPL_EVENT_FOCUS_IN] = parse_event_focus_in,
-	[XPL_EVENT_FOCUS_OUT] = parse_event_focus_out,
-	[XPL_EVENT_KEYMAP_NOTIFY] = parse_event_keymap_notify,
-	[XPL_EVENT_EXPOSE] = parse_event_expose,
+	[XPL_EVENT_KEY_PRESS]         = parse_event_key_press,
+	[XPL_EVENT_KEY_RELEASE]       = parse_event_key_release,
+	[XPL_EVENT_BUTTON_PRESS]      = parse_event_button_press,
+	[XPL_EVENT_BUTTON_RELEASE]    = parse_event_button_release,
+	[XPL_EVENT_MOTION_NOTIFY]     = parse_event_motion_notify,
+	[XPL_EVENT_ENTER_NOTIFY]      = parse_event_enter_notify,
+	[XPL_EVENT_LEAVE_NOTIFY]      = parse_event_leave_notify,
+	[XPL_EVENT_FOCUS_IN]          = parse_event_focus_in,
+	[XPL_EVENT_FOCUS_OUT]         = parse_event_focus_out,
+	[XPL_EVENT_KEYMAP_NOTIFY]     = parse_event_keymap_notify,
+	[XPL_EVENT_EXPOSE]            = parse_event_expose,
 	[XPL_EVENT_GRAPHICS_EXPOSURE] = parse_event_graphics_exposure,
-	[XPL_EVENT_NO_EXPOSURE] = parse_event_no_exposure,
+	[XPL_EVENT_NO_EXPOSURE]       = parse_event_no_exposure,
 	[XPL_EVENT_VISIBILITY_NOTIFY] = parse_event_visibility_notify,
-	[XPL_EVENT_CREATE_NOTIFY] = parse_event_create_notify,
-	[XPL_EVENT_DESTROY_NOTIFY] = parse_event_destroy_notify,
-	[XPL_EVENT_UNMAP_NOTIFY] = parse_event_unmap_notify,
-	[XPL_EVENT_MAP_NOTIFY] = parse_event_map_notify,
-	[XPL_EVENT_MAP_REQUEST] = parse_event_map_request,
-	[XPL_EVENT_REPARENT_NOTIFY] = parse_event_reparent_notify,
-	[XPL_EVENT_CONFIGURE_NOTIFY] = parse_event_configure_notify,
-
-	[XPL_EVENT_PROPERTY_NOTIFY] = parse_event_property_notify,
+	[XPL_EVENT_CREATE_NOTIFY]     = parse_event_create_notify,
+	[XPL_EVENT_DESTROY_NOTIFY]    = parse_event_destroy_notify,
+	[XPL_EVENT_UNMAP_NOTIFY]      = parse_event_unmap_notify,
+	[XPL_EVENT_MAP_NOTIFY]        = parse_event_map_notify,
+	[XPL_EVENT_MAP_REQUEST]       = parse_event_map_request,
+	[XPL_EVENT_REPARENT_NOTIFY]   = parse_event_reparent_notify,
+	[XPL_EVENT_CONFIGURE_NOTIFY]  = parse_event_configure_notify,
+	[XPL_EVENT_CONFIGURE_REQUEST] = parse_event_configure_request,
+	[XPL_EVENT_GRAVITY_NOTIFY]    = parse_event_gravity_notify,
+	[XPL_EVENT_RESIZE_REQUEST]    = parse_event_resize_request,
+	[XPL_EVENT_CIRCULATE_NOTIFY]  = parse_event_circulate_notify,
+	[XPL_EVENT_CIRCULATE_REQUEST] = parse_event_circulate_request,
+	[XPL_EVENT_PROPERTY_NOTIFY]   = parse_event_property_notify,
+	[XPL_EVENT_SELECTION_CLEAR]   = parse_event_selection_clear,
+	[XPL_EVENT_SELECTION_REQUEST] = parse_event_selection_request,
+	[XPL_EVENT_SELECTION_NOTIFY]  = parse_event_selection_notify,
+	[XPL_EVENT_COLORMAP_NOTIFY]   = parse_event_colormap_notify,
+	[XPL_EVENT_CLIENT_MESSAGE]    = parse_event_client_message,
+	[XPL_EVENT_MAPPING_NOTIFY]    = parse_event_mapping_notify,
 };
 
 static enum xpl_status xplc_parse_event(struct xpl_conn *conn,
@@ -843,4 +1021,101 @@ int xplc_change_property(struct xpl_conn *conn, enum xpl_property_mode mode,
 	    && buf_wu32(&conn->wbuf, length / l)
 	    && buf_write(&conn->wbuf, data, length)
 	    && buf_write(&conn->wbuf, NULL, p);
+}
+
+int xplc_configure_window(struct xpl_conn *conn, xpl_window_t window,
+                          uint16_t value_mask, uint32_t *value_list)
+{
+	size_t n = 0;
+	for (size_t i = 0; i < 7; ++i)
+	{
+		if (value_mask & (1 << i))
+			n++;
+	}
+	if (!buf_wu8(&conn->wbuf, XPL_REQUEST_CONFIGURE_WINDOW)
+	 || !buf_wu8(&conn->wbuf, 0)
+	 || !buf_wu16(&conn->wbuf, 3 + n)
+	 || !buf_wu32(&conn->wbuf, window)
+	 || !buf_wu16(&conn->wbuf, value_mask)
+	 || !buf_wu16(&conn->wbuf, 0))
+		return 0;
+	n = 0;
+	if (value_mask & XPL_CONFIGURE_WINDOW_X)
+	{
+		if (!buf_wi16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_Y)
+	{
+		if (!buf_wi16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_WIDTH)
+	{
+		if (!buf_wu16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_HEIGHT)
+	{
+		if (!buf_wu16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_BORDER_WIDTH)
+	{
+		if (!buf_wu16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_SIBLING)
+	{
+		if (!buf_wu32(&conn->wbuf, value_list[n++]))
+			return 0;
+	}
+	if (value_mask & XPL_CONFIGURE_WINDOW_STACK_MODE)
+	{
+		if (!buf_wu16(&conn->wbuf, value_list[n++])
+		 || !buf_wu16(&conn->wbuf, 0)
+		 || !buf_wu8(&conn->wbuf, 0))
+			return 0;
+	}
+	return 1;
+}
+
+int xplc_circulate_window(struct xpl_conn *conn, uint8_t direction,
+                          xpl_window_t window)
+{
+	return buf_wu8(&conn->wbuf, XPL_REQUEST_CIRCULATE_WINDOW)
+	    && buf_wu8(&conn->wbuf, direction)
+	    && buf_wu16(&conn->wbuf, 2)
+	    && buf_wu32(&conn->wbuf, window);
+}
+
+int xplc_change_window_attributes(struct xpl_conn *conn, xpl_window_t window,
+                                  uint32_t value_mask, uint32_t *values)
+{
+	size_t n = 0;
+	for (size_t i = 0; i < 15; ++i)
+	{
+		if (value_mask & (1 << i))
+			n++;
+	}
+	if (!buf_wi8(&conn->wbuf, XPL_REQUEST_CHANGE_WINDOW_ATTRIBUTES)
+	 || !buf_wu8(&conn->wbuf, 0)
+	 || !buf_wu16(&conn->wbuf, 3 + n)
+	 || !buf_wu32(&conn->wbuf, window)
+	 || !buf_wu32(&conn->wbuf, value_mask))
+		return 0;
+	n = 0;
+	for (size_t i = 0; i < 15; ++i)
+	{
+		if (!(value_mask & (1 << i)))
+			continue;
+		if (!buf_wu32(&conn->wbuf, values[n]))
+			return 0;
+	}
+	return 1;
 }

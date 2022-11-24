@@ -148,13 +148,9 @@ int XPeekEvent(Display *display, XEvent *event_return)
 	return Success;
 }
 
-Window XCreateWindow(Display *display, Window parent, int x, int y,
-                     unsigned width, unsigned height, unsigned border_width,
-                     int depth, unsigned _class, Visual *visual,
-                     unsigned valuemask, XSetWindowAttributes *attributes)
+static void gen_window_attributes(uint32_t *values, unsigned valuemask,
+                                  XSetWindowAttributes *attributes)
 {
-	uint32_t values[15];
-	Window id = xplc_generate_id(display->conn);
 	size_t n = 0;
 	if (valuemask & CWBackPixmap)
 		values[n++] = attributes->background_pixmap;
@@ -186,11 +182,34 @@ Window XCreateWindow(Display *display, Window parent, int x, int y,
 		values[n++] = attributes->colormap;
 	if (valuemask & CWCursor)
 		values[n++] = attributes->cursor;
+}
+
+Window XCreateWindow(Display *display, Window parent, int x, int y,
+                     unsigned width, unsigned height, unsigned border_width,
+                     int depth, unsigned _class, Visual *visual,
+                     unsigned valuemask, XSetWindowAttributes *attributes)
+{
+	uint32_t values[15];
+	Window id = xplc_generate_id(display->conn);
+	gen_window_attributes(values, valuemask, attributes);
 	if (!xplc_create_window(display->conn, depth, id, parent, x, y, width,
 	                        height, border_width, _class, visual ? visual->visual_id : 0,
 	                        valuemask, values))
 		return BadAlloc;
 	return id;
+}
+
+Window XCreateSimpleWindow(Display *display, Window parent, int x, int y,
+                           unsigned width, unsigned height,
+                           unsigned border_width, unsigned long border,
+                           unsigned long background)
+{
+	XSetWindowAttributes attributes;
+	attributes.background_pixel = background;
+	attributes.border_pixel = border;
+	return XCreateWindow(display, parent, x, y, width, height, border_width,
+	                     0, InputOutput, NULL, CWBorderPixel | CWBackPixel,
+	                     &attributes);
 }
 
 int XMapWindow(Display *display, Window w)
@@ -233,4 +252,139 @@ int XChangeProperty(Display *display, Window w, Atom property, Atom type,
 	                          nelements, data))
 		return BadAlloc;
 	return Success;
+}
+
+int XConfigureWindow(Display *display, Window w, unsigned value_mask,
+                     XWindowChanges *values)
+{
+	uint32_t v[7];
+	size_t n = 0;
+	if (value_mask & CWX)
+		v[n++] = values->x;
+	if (value_mask & CWY)
+		v[n++] = values->y;
+	if (value_mask & CWWidth)
+		v[n++] = values->width;
+	if (value_mask & CWHeight)
+		v[n++] = values->height;
+	if (value_mask & CWBorderWidth)
+		v[n++] = values->border_width;
+	if (value_mask & CWSibling)
+		v[n++] = values->sibling;
+	if (value_mask & CWStackMode)
+		v[n++] = values->stack_mode;
+	if (!xplc_configure_window(display->conn, w, value_mask, v))
+		return BadAlloc;
+	return Success;
+}
+
+int XMoveWindow(Display *display, Window w, int x, int y)
+{
+	XWindowChanges changes;
+	changes.x = x;
+	changes.y = y;
+	return XConfigureWindow(display, w, CWX | CWY, &changes);
+}
+
+int XResizeWindow(Display *display, Window w, unsigned width, unsigned height)
+{
+	XWindowChanges changes;
+	changes.width = width;
+	changes.height = height;
+	return XConfigureWindow(display, w, CWWidth | CWHeight, &changes);
+}
+
+int XMoveResizeWindow(Display *display, Window w, int x, int y, unsigned width,
+                      unsigned height)
+{
+	XWindowChanges changes;
+	changes.x = x;
+	changes.y = y;
+	changes.width = width;
+	changes.height = height;
+	return XConfigureWindow(display, w, CWX | CWY | CWWidth | CWHeight,
+	                        &changes);
+}
+
+int XSetWindowBorderWidth(Display *display, Window w, unsigned width)
+{
+	XWindowChanges changes;
+	changes.border_width = width;
+	return XConfigureWindow(display, w, CWBorderWidth, &changes);
+}
+
+int XRaiseWindow(Display *display, Window w)
+{
+	if (!xplc_circulate_window(display->conn,
+	                           XPL_CIRCULATE_WINDOW_RAISE_LOWEST, w))
+		return BadAlloc;
+	return Success;
+}
+
+int XLowerWindow(Display *display, Window w)
+{
+	if (!xplc_circulate_window(display->conn,
+	                           XPL_CIRCULATE_WINDOW_LOWER_HIGHEST, w))
+		return BadAlloc;
+	return Success;
+}
+
+int XChangeWindowAttributes(Display *display, Window w,
+                            unsigned long valuemask,
+                            XSetWindowAttributes *attributes)
+{
+	uint32_t values[15];
+	gen_window_attributes(values, valuemask, attributes);
+	if (!xplc_change_window_attributes(display->conn, w, valuemask, values))
+		return BadAlloc;
+	return Success;
+}
+
+int XSetWindowBackground(Display *display, Window w,
+                         unsigned long background_pixel)
+{
+	XSetWindowAttributes attributes;
+	attributes.background_pixel = background_pixel;
+	return XChangeWindowAttributes(display, w, CWBackPixel, &attributes);
+}
+
+int XSetWindowBackgroundPixmap(Display *display, Window w,
+                               Pixmap background_pixmap)
+{
+	XSetWindowAttributes attributes;
+	attributes.background_pixmap = background_pixmap;
+	return XChangeWindowAttributes(display, w, CWBackPixmap, &attributes);
+}
+
+int XSetWindowBorder(Display *display, Window w, unsigned long border_pixel)
+{
+	XSetWindowAttributes attributes;
+	attributes.border_pixel = border_pixel;
+	return XChangeWindowAttributes(display, w, CWBorderPixel, &attributes);
+}
+
+int XSetWindowBorderPixmap(Display *display, Window w, Pixmap border_pixmap)
+{
+	XSetWindowAttributes attributes;
+	attributes.border_pixmap = border_pixmap;
+	return XChangeWindowAttributes(display, w, CWBorderPixmap, &attributes);
+}
+
+int XSetWindowColormap(Display *display, Window w, Colormap colormap)
+{
+	XSetWindowAttributes attributes;
+	attributes.colormap = colormap;
+	return XChangeWindowAttributes(display, w, CWColormap, &attributes);
+}
+
+int XDefineCursor(Display *display, Window w, Cursor cursor)
+{
+	XSetWindowAttributes attributes;
+	attributes.cursor = cursor;
+	return XChangeWindowAttributes(display, w, CWCursor, &attributes);
+}
+
+int XUndefineCursor(Display *display, Window w)
+{
+	return XDefineCursor(display, w, None);
 }
